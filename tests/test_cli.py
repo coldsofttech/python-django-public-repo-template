@@ -54,13 +54,23 @@ def test_gunicorn_command() -> None:
     assert command[command.index("--forwarded-allow-ips") + 1] == "*"
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="gunicorn does not run on Windows")
+class _Replaced(Exception):
+    """Stands in for os.execv, which never returns because it replaces the process."""
+
+
 def test_serve_replaces_the_process_with_gunicorn(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[list[str]] = []
-    monkeypatch.setattr(os, "execv", lambda path, args: calls.append(args))
+
+    def fake_execv(path: str, args: list[str]) -> None:
+        calls.append(args)
+        raise _Replaced
+
+    monkeypatch.setattr(os, "execv", fake_execv)
+    monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.delenv("EXAMPLE_SERVER", raising=False)
 
-    cli.serve()
+    with pytest.raises(_Replaced):
+        cli.serve()
 
     assert calls[0][3] == "example_project.wsgi:application"
 

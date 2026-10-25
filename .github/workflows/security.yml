@@ -90,7 +90,7 @@ jobs:
       - name: Scan the image for vulnerabilities
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: example-api:scan
+          image-ref: example-django:scan
           format: sarif
           output: trivy.sarif
           severity: HIGH,CRITICAL
