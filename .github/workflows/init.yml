@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   init:
-    if: github.repository != 'coldsofttech/python-public-repo-template'
+    if: github.repository != 'coldsofttech/python-django-public-repo-template'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -27,8 +27,8 @@ jobs:
             ':(exclude).github/workflows' ':(exclude)LICENSE' ':(exclude).pre-commit-config.yaml' \
             | xargs -0 grep -lZ -e coldsofttech -e public-repo-template \
             | xargs -0 -r sed -i \
-                -e "s|coldsofttech/python-public-repo-template|$REPO|g" \
-                -e "s|python-public-repo-template|$NAME|g" \
+                -e "s|coldsofttech/python-django-public-repo-template|$REPO|g" \
+                -e "s|python-django-public-repo-template|$NAME|g" \
                 -e "s|coldsofttech|$OWNER|g"
 
       - name: Open pull request

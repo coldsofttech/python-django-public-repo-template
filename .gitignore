@@ -40,3 +40,9 @@ dist/
 .coverage.*
 htmlcov/
 coverage.xml
+
+# Django
+db.sqlite3
+db.sqlite3-journal
+staticfiles/
+.schemathesis/

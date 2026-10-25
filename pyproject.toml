@@ -3,45 +3,85 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "python-public-repo-template"
+name = "python-django-public-repo-template"
 dynamic = ["version"]
-description = "Python package description."
+description = "Django web application description."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
+keywords = ["django", "rest-framework", "web"]
 authors = [{ name = "coldsofttech" }]
 classifiers = [
+  "Environment :: Web Environment",
+  "Framework :: Django",
+  "Framework :: Django :: 5.2",
+  "Framework :: Django :: 6.0",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: 3.15",
+  "Topic :: Internet :: WWW/HTTP",
   "Typing :: Typed",
 ]
-dependencies = []
+dependencies = [
+  "django>=5.2,<7",
+  "django-cors-headers>=4.6",
+  "django-environ>=0.12",
+  "django-stubs-ext>=5.1",
+  "djangorestframework>=3.15",
+  "drf-spectacular>=0.28",
+  "drf-spectacular-sidecar>=2025.1",
+  "gunicorn>=23.0; sys_platform != 'win32'",
+  "pyjwt>=2.9",
+  "uvicorn[standard]>=0.32",
+  "whitenoise>=6.8",
+]
+
+# Database drivers. SQLite needs nothing extra. Install the one you use, for example:
+#   uv sync --extra postgres        pip install "<package>[mysql]"
+# Any other database Django supports works too: install its driver and set DATABASE_URL.
+[project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.2"]
+mysql = ["mysqlclient>=2.2"]
+
+[project.scripts]
+example-manage = "example_project.cli:manage"
+example-serve = "example_project.cli:serve"
 
 [project.urls]
-Homepage = "https://github.com/coldsofttech/python-public-repo-template"
-Issues = "https://github.com/coldsofttech/python-public-repo-template/issues"
-Changelog = "https://github.com/coldsofttech/python-public-repo-template/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/coldsofttech/python-django-public-repo-template"
+Issues = "https://github.com/coldsofttech/python-django-public-repo-template/issues"
+Changelog = "https://github.com/coldsofttech/python-django-public-repo-template/blob/main/CHANGELOG.md"
 
 [dependency-groups]
 dev = [
+  "django-stubs>=5.1",
+  "djangorestframework-stubs>=3.15",
+  "httpx>=0.27",
   "mypy>=1.13",
   "pre-commit>=4.0",
   "pytest>=8.3",
   "pytest-cov>=6.0",
+  "pytest-django>=4.9",
   "pytest-xdist>=3.6",
   "ruff>=0.8",
+  "schemathesis>=4.0",
 ]
 
 [tool.hatch.version]
 path = "src/example_package/__init__.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/example_package"]
+packages = [
+  "src/example_package",
+  "src/example_project",
+  "src/example_core",
+  "src/example_api",
+  "src/example_web",
+]
 
 [tool.ruff]
 line-length = 100
@@ -49,19 +89,32 @@ src = ["src", "tests"]
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["B", "C4", "E", "F", "I", "PT", "RUF", "S", "SIM", "UP", "W"]
+select = ["B", "C4", "DJ", "E", "F", "I", "PT", "RUF", "S", "SIM", "T20", "UP", "W"]
+# Mutable class attributes are how Django and Django REST Framework are configured.
+ignore = ["RUF012"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S603"]  # assert and subprocess are fine in tests
-"scripts/**" = ["S603", "S607"]  # scripts call the trusted gh CLI
+"tests/**" = ["S101", "S105", "S106", "S603"]  # asserts, fake secrets and subprocess are fine in tests
+"scripts/**" = ["S603", "S607", "T201"]  # scripts call trusted tools and print progress
+"**/migrations/**" = ["E501", "RUF012"]  # generated code
 
 [tool.mypy]
 strict = true
 files = ["src", "tests"]
+plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+
+[[tool.mypy.overrides]]
+module = ["environ"]  # django-environ ships no type information
+ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "tests.settings"
 
 [tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
 testpaths = ["tests"]
-addopts = "-m 'not integration' --strict-markers --cov=example_package --cov-report=term-missing --cov-fail-under=80"
+pythonpath = ["."]
+addopts = "-m 'not integration' --strict-markers --cov=example_package --cov=example_project --cov=example_core --cov=example_api --cov=example_web --cov-report=term-missing --cov-fail-under=80"
 markers = ["integration: slower end-to-end tests, run in CI but not by default or in pre-commit"]
 
 [tool.coverage.run]

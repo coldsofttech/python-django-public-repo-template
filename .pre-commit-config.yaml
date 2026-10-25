@@ -1,3 +1,6 @@
+# Vendored library: keep it byte-for-byte as released.
+exclude: ^src/example_web/static/example_web/htmx\.min\.js$
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
