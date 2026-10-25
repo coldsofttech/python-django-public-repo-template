@@ -31,7 +31,8 @@ class HelloView(APIView):
         try:
             message = greet(name)
         except ValueError as exc:
-            raise ValidationError(str(exc)) from exc
+            # A fixed message: exception text is never echoed back to the caller.
+            raise ValidationError("name must not be empty") from exc
         return Response({"message": message})
 
 
