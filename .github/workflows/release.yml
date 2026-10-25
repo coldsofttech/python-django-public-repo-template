@@ -1,0 +1,42 @@
+name: Release
+
+# Publishes to PyPI when a GitHub release is published, using trusted publishing (no stored tokens).
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.2
+      - name: Check tag matches package version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="$(uv version --short)"
+          [ "$TAG" = "v$version" ] || { echo "Tag $TAG does not match version $version"; exit 1; }
+      - run: uv build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

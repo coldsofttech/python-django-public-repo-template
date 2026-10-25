@@ -1,0 +1,51 @@
+name: Init
+
+# Run once from the Actions tab in a repository created from the template.
+# Replaces the template's owner and repository name, then opens a pull request.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  init:
+    if: github.repository != 'coldsofttech/python-public-repo-template'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Replace placeholders
+        env:
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          NAME: ${{ github.event.repository.name }}
+        run: |
+          git ls-files -z -- . \
+            ':(exclude).github/workflows' ':(exclude)LICENSE' ':(exclude).pre-commit-config.yaml' \
+            | xargs -0 grep -lZ -e coldsofttech -e public-repo-template \
+            | xargs -0 -r sed -i \
+                -e "s|coldsofttech/python-public-repo-template|$REPO|g" \
+                -e "s|python-public-repo-template|$NAME|g" \
+                -e "s|coldsofttech|$OWNER|g"
+
+      - name: Open pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.repository.default_branch }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c chore/init-template
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing to change"
+            exit 0
+          fi
+          git commit -m "chore: initialize repository from template"
+          git push origin chore/init-template
+          gh pr create --base "$BASE" --head chore/init-template \
+            --title "chore: initialize repository from template" \
+            --body "Replaces the template owner and repository name. Review, merge, then delete \`.github/workflows/init.yml\`."
