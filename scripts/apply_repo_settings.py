@@ -145,6 +145,13 @@ def main():
                 "type=tag",
             )
 
+    # Switches read by release.yml; both publishing targets start off.
+    if (Path(__file__).resolve().parent.parent / ".github" / "workflows" / "release.yml").exists():
+        existing = gh("variable", "list", "--repo", repo, "--json", "name", "-q", ".[].name")
+        for name in ("PUBLISH_PYPI", "PUBLISH_GHCR"):
+            if name not in existing.splitlines():
+                gh("variable", "set", name, "--repo", repo, "--body", "false")
+
     # Ruleset (skips creation if one named "main" already exists).
     names = gh("api", f"repos/{repo}/rulesets", "-q", ".[].name").splitlines()
     if "main" in names:

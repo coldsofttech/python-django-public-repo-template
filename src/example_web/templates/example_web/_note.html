@@ -1,0 +1,9 @@
+<li id="note-{{ note.pk }}">
+  <strong>{{ note.title }}</strong>
+  {% if note.body %}<p>{{ note.body }}</p>{% endif %}
+  <form method="post" action="{% url 'note-delete' note.pk %}"
+        hx-post="{% url 'note-delete' note.pk %}" hx-target="#note-{{ note.pk }}" hx-swap="outerHTML">
+    {% csrf_token %}
+    <button type="submit">Delete</button>
+  </form>
+</li>

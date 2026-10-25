@@ -54,7 +54,37 @@ These apply on top of the rules above.
     `uv run mypy <file>`. Coverage must stay at or above the minimum in `pyproject.toml`. Put slow or end-to-end tests in
     `tests/integration/`; they are excluded from the default run and only run with `-m integration`.
 
-12. **Dependencies and releases**: keep runtime `dependencies` minimal. Don't change the version
+12. **Dependencies and releases**: keep runtime `dependencies` minimal. Django, Django REST Framework,
+    drf-spectacular, django-environ, django-cors-headers, WhiteNoise, gunicorn, uvicorn and PyJWT
+    are the app's accepted dependencies, and database drivers belong in optional extras; justify any
+    other new one. Don't change the version
     or publish; releases are cut by the maintainer through a GitHub release.
+
+13. **Django layering**: apps (`example_api`, `example_web`, `example_core`) only validate input,
+    call `example_package` or the ORM, and return responses; business logic belongs in
+    `example_package`, which knows nothing about HTTP. Keep `example_api` and `example_web` optional:
+    nothing outside them may import them, and routes register through `build_urlpatterns`.
+
+14. **Settings and secrets**: configure everything through `EXAMPLE_*` environment variables read in
+    `settings.py`, fail at startup on bad values, never hardcode or log secrets, and keep
+    `manage.py check --deploy` clean. Document every new setting in `docs/configuration.md` and
+    `.env.example`.
+
+15. **Database and migrations**: stay database-neutral (no raw vendor SQL without a fallback), and
+    create a migration with every model change (`makemigrations --check` runs in CI). Do not edit
+    migrations that have shipped.
+
+16. **API behavior and docs**: errors use the problem details format, and 500 responses never expose
+    details. Test the API with `APIClient` and the real server in `tests/integration/`. After
+    changing routes or serializers, regenerate `docs/openapi.json`
+    (`uv run python scripts/export_openapi.py`) and update `docs/api.md`.
+
+17. **Security**: keep authentication, rate limiting, security headers and HTTPS settings enabled
+    unless the maintainer says otherwise, and don't add `# noqa` or `# nosemgrep` without a reason
+    in the comment. Document any new protection in `docs/security.md`.
+
+18. **Container and releases**: keep the Docker image non-root and small, and keep publishing to
+    GHCR and PyPI off by default (`PUBLISH_GHCR` and `PUBLISH_PYPI` variables) unless the
+    maintainer turns them on.
 
 <!-- markdownlint-enable MD029 -->

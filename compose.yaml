@@ -1,0 +1,43 @@
+# Local stack: the web app, a one-off migration step and PostgreSQL.
+# Copy .env.example to .env and set EXAMPLE_SECRET_KEY first. Run: docker compose up --build
+x-app-environment: &app-environment
+  EXAMPLE_SECRET_KEY: ${EXAMPLE_SECRET_KEY:?Set EXAMPLE_SECRET_KEY in .env}
+  EXAMPLE_ALLOWED_HOSTS: localhost,127.0.0.1
+  EXAMPLE_HTTPS: "false" # plain HTTP is fine on your own machine
+  EXAMPLE_DOCS_ENABLED: "true" # the image hides the API docs by default
+  DATABASE_URL: postgres://example:${POSTGRES_PASSWORD:-example}@db:5432/example
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: example
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-example}
+      POSTGRES_DB: example
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U example"]
+      interval: 5s
+      retries: 10
+
+  migrate:
+    build: .
+    command: ["example-manage", "migrate", "--noinput"]
+    environment: *app-environment
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment: *app-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  db-data:

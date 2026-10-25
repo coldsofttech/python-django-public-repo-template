@@ -1,0 +1,25 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="htmx-config" content='{"allowEval": false, "includeIndicatorStyles": false}'>
+  <title>{% block title %}example{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'example_web/style.css' %}">
+  <script src="{% static 'example_web/htmx.min.js' %}" defer></script>
+</head>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  <header>
+    <a href="{% url 'index' %}"><strong>example</strong></a>
+    <nav>
+      {% if user.is_authenticated %}
+        <span>{{ user.get_username }}</span>
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit">Sign out</button></form>
+      {% else %}
+        <a href="{% url 'login' %}">Sign in</a>
+      {% endif %}
+    </nav>
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>

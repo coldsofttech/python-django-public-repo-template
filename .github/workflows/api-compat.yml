@@ -1,0 +1,32 @@
+name: API compatibility
+
+# Compares the OpenAPI document in a pull request with the one on the base branch and fails when the
+# change would break existing callers (removed endpoints, new required fields, changed types...).
+# Not part of the required `ci` check: a deliberate breaking change should go in a new /api/v2 router,
+# or be merged knowingly after review.
+on:
+  pull_request:
+    paths: [docs/openapi.json]
+
+permissions:
+  contents: read
+
+jobs:
+  breaking-changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+      - uses: actions/checkout@v7
+        with:
+          path: head
+      - name: Check for breaking changes
+        if: hashFiles('base/docs/openapi.json') != ''
+        uses: oasdiff/oasdiff-action/breaking@v0.1.20
+        with:
+          base: base/docs/openapi.json
+          revision: head/docs/openapi.json
+          fail-on: ERR

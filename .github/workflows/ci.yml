@@ -12,6 +12,12 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # A production-like configuration, used by the deployment check and the migration check.
+  EXAMPLE_SECRET_KEY: ci-only-not-a-real-secret-ci-only-not-a-real-secret-ci-only
+  EXAMPLE_ALLOWED_HOSTS: example.com
+  EXAMPLE_BEHIND_PROXY: "true"
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -20,6 +26,14 @@ jobs:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.2
       - run: uv sync --locked
+      - name: Check for missing migrations
+        run: uv run example-manage makemigrations --check --dry-run
+      - name: Check the deployment configuration
+        run: uv run example-manage check --deploy --fail-level WARNING
+      - name: Check the OpenAPI document is up to date
+        run: |
+          uv run python scripts/export_openapi.py
+          git diff --exit-code docs/openapi.json
       - uses: pre-commit/action@v3.0.1
         env:
           SKIP: pytest # covered by the test job across all Python versions
@@ -46,6 +60,49 @@ jobs:
       - run: uv sync --locked
       - run: uv run pytest
 
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.2
+      - run: uv sync --locked --extra postgres
+      - run: uv run pytest
+
+  mysql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: app
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -proot" --health-interval 5s
+          --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: mysql://root:root@127.0.0.1:3306/app
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install the MySQL client library
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends pkg-config default-libmysqlclient-dev
+      - uses: astral-sh/setup-uv@v10.3.2
+      - run: uv sync --locked --extra mysql
+      - run: uv run pytest
+
   integration:
     name: integration (${{ matrix.os }}, ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
@@ -66,7 +123,51 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: uv sync --locked
+      # The tests start the real server with gunicorn (WSGI, not on Windows) and uvicorn (ASGI).
       - run: uv run pytest -m integration --no-cov
+
+  docker:
+    name: docker (${{ matrix.database }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - database: postgres
+            extras: --extra postgres
+            module: psycopg
+          - database: mysql
+            extras: --extra mysql
+            module: MySQLdb
+          - database: sqlite
+            extras: ""
+            module: sqlite3
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the image
+        run: docker build --build-arg "UV_EXTRAS=${{ matrix.extras }}" --tag example-django:ci .
+      - name: Check the database driver is installed
+        run: docker run --rm example-django:ci python -c "import ${{ matrix.module }}"
+      - name: Smoke test the container
+        run: |
+          docker run --detach --name web --publish 8000:8000 \
+            --env EXAMPLE_SECRET_KEY="$EXAMPLE_SECRET_KEY" \
+            --env EXAMPLE_ALLOWED_HOSTS=127.0.0.1,localhost \
+            --env EXAMPLE_HTTPS=false \
+            example-django:ci
+          docker exec web example-manage migrate --noinput
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8000/ready; then
+              echo
+              docker rm --force web
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs web
+          docker rm --force web
+          exit 1
 
   build:
     runs-on: ubuntu-latest
@@ -76,11 +177,20 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.2
       - run: uv build
       - run: uvx twine check --strict dist/*
+      - name: Check the wheel contains the templates and static files
+        run: |
+          unzip -l dist/*.whl | grep -q "example_web/templates/example_web/base.html"
+          unzip -l dist/*.whl | grep -q "example_web/static/example_web/htmx.min.js"
+          unzip -l dist/*.whl | grep -q "example_core/migrations/0001_initial.py"
+      - name: Smoke test the built wheel
+        run: >
+          uv run --isolated --no-project --with dist/*.whl
+          python -c "import example_project.cli, example_package"
 
   # Single required status check for the branch ruleset.
   ci:
     if: always()
-    needs: [lint, test, integration, build]
+    needs: [lint, test, postgres, mysql, integration, docker, build]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -88,9 +198,15 @@ jobs:
         run: |
           echo "lint:        ${{ needs.lint.result }}"
           echo "test:        ${{ needs.test.result }}"
+          echo "postgres:    ${{ needs.postgres.result }}"
+          echo "mysql:       ${{ needs.mysql.result }}"
           echo "integration: ${{ needs.integration.result }}"
+          echo "docker:      ${{ needs.docker.result }}"
           echo "build:       ${{ needs.build.result }}"
           [ "${{ needs.lint.result }}" = success ] &&
           [ "${{ needs.test.result }}" = success ] &&
+          [ "${{ needs.postgres.result }}" = success ] &&
+          [ "${{ needs.mysql.result }}" = success ] &&
           [ "${{ needs.integration.result }}" = success ] &&
+          [ "${{ needs.docker.result }}" = success ] &&
           [ "${{ needs.build.result }}" = success ]

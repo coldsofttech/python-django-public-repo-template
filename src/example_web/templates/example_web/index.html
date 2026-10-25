@@ -1,0 +1,13 @@
+{% extends "example_web/base.html" %}
+{% block content %}
+  <h1>{{ greeting }}</h1>
+  {% if user.is_authenticated %}
+    <h2>Notes</h2>
+    <div id="note-form">{% include "example_web/_form.html" %}</div>
+    <ul id="notes">
+      {% for note in notes %}{% include "example_web/_note.html" %}{% empty %}<li class="empty">No notes yet.</li>{% endfor %}
+    </ul>
+  {% else %}
+    <p><a href="{% url 'login' %}">Sign in</a> to manage notes.</p>
+  {% endif %}
+{% endblock %}

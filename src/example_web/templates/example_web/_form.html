@@ -1,0 +1,6 @@
+<form method="post" action="{% url 'note-create' %}"
+      hx-post="{% url 'note-create' %}" hx-target="#notes" hx-swap="afterbegin">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Add note</button>
+</form>
