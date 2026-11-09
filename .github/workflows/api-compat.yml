@@ -25,7 +25,7 @@ jobs:
           path: head
       - name: Check for breaking changes
         if: hashFiles('base/docs/openapi.json') != ''
-        uses: oasdiff/oasdiff-action/breaking@v0.1.20
+        uses: oasdiff/oasdiff-action/breaking@v0.1.21
         with:
           base: base/docs/openapi.json
           revision: head/docs/openapi.json
