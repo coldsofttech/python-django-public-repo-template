@@ -29,7 +29,7 @@ jobs:
       actions: read
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.2
+      - uses: astral-sh/setup-uv@v10.3.3
       # Actions are pinned to version tags on purpose (Dependabot keeps them current), so the
       # rule that asks for commit SHAs is excluded.
       - name: Run Semgrep

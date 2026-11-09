@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.2
+      - uses: astral-sh/setup-uv@v10.3.3
       - name: Check tag matches package version
         env:
           TAG: ${{ github.event.release.tag_name }}
@@ -57,7 +57,7 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.2
+      - uses: astral-sh/setup-uv@v10.3.3
       - name: Check tag matches package version
         env:
           TAG: ${{ github.event.release.tag_name }}
