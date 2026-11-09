@@ -28,6 +28,14 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM python:3.13-slim
 ARG UV_EXTRAS="--extra postgres"
+
+# Pull in the patched zlib1g that the base image has not picked up yet (CVE-2026-85091 and
+# CVE-2026-76844). Remove this once the base image ships the fix.
+# hadolint ignore=DL3008
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends --only-upgrade zlib1g \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN useradd --create-home --uid 10001 app && mkdir /data && chown 10001 /data
 
 # hadolint ignore=DL3008
